@@ -1,49 +1,135 @@
 version: '3.8'
 
 services:
+  usuarios-db:
+    image: mysql:8.0
+    environment:
+      MYSQL_ROOT_PASSWORD: ana
+      MYSQL_DATABASE: usuarios_db
+    volumes:
+      - usuarios-db-data:/var/lib/mysql
+    networks:
+      - biblioteca-net
+    deploy:
+      replicas: 1
+      restart_policy:
+        condition: on-failure
+      placement:
+        constraints:
+          - node.role == manager
+
+  libros-db:
+    image: mysql:8.0
+    environment:
+      MYSQL_ROOT_PASSWORD: ana
+      MYSQL_DATABASE: libros_db
+    volumes:
+      - libros-db-data:/var/lib/mysql
+    networks:
+      - biblioteca-net
+    deploy:
+      replicas: 1
+      restart_policy:
+        condition: on-failure
+      placement:
+        constraints:
+          - node.role == manager
+
+  prestamos-db:
+    image: mysql:8.0
+    environment:
+      MYSQL_ROOT_PASSWORD: ana
+      MYSQL_DATABASE: prestamos_db
+    volumes:
+      - prestamos-db-data:/var/lib/mysql
+    networks:
+      - biblioteca-net
+    deploy:
+      replicas: 1
+      restart_policy:
+        condition: on-failure
+      placement:
+        constraints:
+          - node.role == manager
 
   usuarios:
-    build: ./usuarios
+    image: anamarirvera/biblioteca-usuarios
     environment:
-      DB_HOST: 192.168.100.2
+      DB_HOST: usuarios-db
       DB_PASSWORD: ana
       DB_NAME: usuarios_db
+    networks:
+      - biblioteca-net
     ports:
-      - "3001"
-    restart: always
+      - target: 3001
+        published: 3001
+        protocol: tcp
+        mode: ingress
+    deploy:
+      replicas: 3
+      restart_policy:
+        condition: on-failure
+      update_config:
+        parallelism: 1
+        delay: 10s
+      placement:
+        constraints:
+          - node.role == worker
 
   libros:
-    build: ./libros
+    image: anamarirvera/biblioteca-libros
     environment:
-      DB_HOST: 192.168.100.2
+      DB_HOST: libros-db
       DB_PASSWORD: ana
       DB_NAME: libros_db
+    networks:
+      - biblioteca-net
     ports:
-      - "3002"
-    restart: always
+      - target: 3002
+        published: 3002
+        protocol: tcp
+        mode: ingress
+    deploy:
+      replicas: 3
+      restart_policy:
+        condition: on-failure
+      update_config:
+        parallelism: 1
+        delay: 10s
+      placement:
+        constraints:
+          - node.role == worker
 
   prestamos:
-    build: ./prestamos
+    image: anamarirvera/biblioteca-prestamos
     environment:
-      DB_HOST: 192.168.100.2
+      DB_HOST: prestamos-db
       DB_PASSWORD: ana
       DB_NAME: prestamos_db
+    networks:
+      - biblioteca-net
     ports:
-      - "3003"
-    restart: always
+      - target: 3003
+        published: 3003
+        protocol: tcp
+        mode: ingress
+    deploy:
+      replicas: 3
+      restart_policy:
+        condition: on-failure
+      update_config:
+        parallelism: 1
+        delay: 10s
+      placement:
+        constraints:
+          - node.role == worker
 
-  haproxy:
-    image: haproxy:2.8
-    ports:
-      - "3001:3001"
-      - "3002:3002"
-      - "3003:3003"
-      - "8404:8404"
-    volumes:
-      - ./haproxy.cfg:/usr/local/etc/haproxy/haproxy.cfg:ro
-    depends_on:
-      - usuarios
-      - libros
-      - prestamos
-    restart: always
+networks:
+  biblioteca-net:
+    driver: overlay
+    attachable: true
 
+volumes:
+  usuarios-db-data:
+  libros-db-data:
+  prestamos-db-data:
